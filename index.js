@@ -7,7 +7,7 @@ const settings = {
     secret: process.env.U_PASS || 'your_password',
     taskGroupId: 330865,
     depositGroupId: 224,
-    minuteInterval: 63 * 1000,
+    minuteInterval: 303 * 1000,
     boxInterval: 3 * 60 * 1000
 };
 
