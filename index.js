@@ -2,20 +2,21 @@ import 'dotenv/config';
 import wolfjs from 'wolf.js';
 const { WOLF } = wolfjs;
 
+// الإعدادات
 const settings = {
     identity: process.env.U_MAIL || 'your_email@example.com',
     secret: process.env.U_PASS || 'your_password',
     taskGroupId: 224,
     depositGroupId: 224,
-    // التوقيتات بالملي ثانية (مثال: 60000 = دقيقة واحدة)
-    tasksInterval:  63 * 1000, // الوقت لإرسال !مد مهام و !مد تحالف ايداع (كل ساعة مثلاً)
-    boxInterval: 3 * 60 * 1000      // الوقت لإرسال !مد صندوق فتح (كل 3 دقائق مثلاً)
+    // التوقيتات بالملي ثانية
+    tasksInterval: 63 * 1000, // كل 63 ثانية
+    boxInterval: 3 * 60 * 1000 // كل 3 دقائق
 };
 
 const MY_INFO = { myId: "80055399" };
 const service = new WOLF();
 
-// دالة تأخير (3 ثواني)
+// دالة تأخير عامة
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -26,6 +27,7 @@ service.on('groupMessage', async (message) => {
         const isTargetGroup = message.targetGroupId === settings.taskGroupId || message.targetGroupId === settings.depositGroupId;
         if (!isTargetGroup) return;
 
+        // التحقق من الفخاخ
         if (content.includes("تحقق") && content.includes(MY_INFO.myId)) {
             
             // تأخير 3 ثواني قبل الرد ليبدو طبيعياً
@@ -86,13 +88,14 @@ service.on('groupMessage', async (message) => {
 });
 
 service.on('ready', async () => {
-    console.log(`🚀 البوت نشط.`);
+    console.log(`🚀 البوت نشط وجاهز للعمل.`);
     await service.group.joinById(settings.taskGroupId);
     await service.group.joinById(settings.depositGroupId);
 
-    // جدولة المهام
+    // جدولة مهام الميد (مع تأخير ثانيتين بين الأوامر)
     setInterval(async () => {
         await service.messaging.sendGroupMessage(settings.taskGroupId, '!مد مهام');
+        await delay(2000); // تأخير ثانيتين
         await service.messaging.sendGroupMessage(settings.depositGroupId, '!مد تحالف ايداع');
     }, settings.tasksInterval);
 
