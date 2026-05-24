@@ -1,16 +1,17 @@
 import wolfjs from 'wolf.js';
 import axios from 'axios';
 import Tesseract from 'tesseract.js';
-import { Jimp } from 'jimp'; 
+import { Jimp } from 'jimp';
 
 const { WOLF } = wolfjs;
 const service = new WOLF();
 
 const CONFIG = {
     MONITOR_GROUP: 81889058,
-    RESULT_ROOM: 9969
+    RESULT_ROOM: 81889058
 };
 
+// اللون الذهبي للإطار
 const TARGET_COLOR = { r: 240, g: 190, b: 70 }; 
 
 async function solveCaptcha(imageUrl) {
@@ -39,24 +40,22 @@ async function solveCaptcha(imageUrl) {
 
         if (!found) return null;
 
-        // قص أدق للمربع
-        const cropWidth = (maxX - minX);
-        const cropHeight = (maxY - minY);
-        const finalBlock = image.clone().crop({ x: minX + 5, y: minY + 5, w: cropWidth - 10, h: cropHeight - 10 });
+        // قص دقيق للمنطقة
+        const finalBlock = image.clone().crop({ x: minX, y: minY, w: (maxX - minX), h: (maxY - minY) });
 
-        // المعالجة الحاسمة: تحويل لصورة بيضاء وسوداء صريحة لإخفاء الشبكة
-        await finalBlock.greyscale().contrast(0.5).threshold({ max: 150, replace: 255 });
+        // معالجة قوية لإظهار النص
+        await finalBlock.greyscale().contrast(0.8).threshold({ max: 150, replace: 255 });
         const buffer = await finalBlock.getBuffer('image/png');
 
-        // القراءة مع القائمة البيضاء (السر هنا)
-        const { data: { text } } = await Tesseract.recognize(buffer, 'eng', {
-            // القائمة البيضاء: يسمح فقط بالحروف والأرقام
-            tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+        // القراءة: إضافة اللغة العربية (ara) وضبط نمط السطر الواحد (PSM 7)
+        const { data: { text } } = await Tesseract.recognize(buffer, 'ara+eng', {
+            tessedit_pageseg_mode: '7', 
+            tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzابتثجحخدذرزسشصضطظعغفقكلمنهوي'
         });
 
-        return text.replace(/[^a-zA-Z0-9]/g, '').trim();
+        return text.trim();
     } catch (err) {
-        console.error("❌ خطأ:", err.message);
+        console.error("❌ خطأ OCR:", err.message);
         return null;
     }
 }
@@ -69,11 +68,11 @@ service.on('groupMessage', async (message) => {
     else if (message.body && message.body.match(/\.(jpg|jpeg|png)$/)) imageUrl = message.body;
 
     if (imageUrl) {
-        console.log("📸 جاري حل الكابتشا...");
+        console.log("📸 جاري الحل...");
         const result = await solveCaptcha(imageUrl);
         
         if (result && result.length > 0) {
-            console.log(`🔑 النتيجة المستخلصة: ${result}`);
+            console.log(`🔑 النتيجة: ${result}`);
             await service.messaging.sendGroupMessage(CONFIG.RESULT_ROOM, `# ${result}`);
         }
     }
