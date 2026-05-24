@@ -1,7 +1,12 @@
 {
+  "name": "wolf-bot",
+  "version": "1.0.0",
+  "type": "module",
   "dependencies": {
     "wolf.js": "latest",
     "dotenv": "latest",
-    "tesseract.js": "latest"
+    "tesseract.js": "latest",
+    "sharp": "latest",
+    "axios": "latest"
   }
 }
