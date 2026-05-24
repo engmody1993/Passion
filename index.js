@@ -6,15 +6,16 @@ const path = require('path');
 
 const service = new WOLF();
 
-// الإعدادات
-const ALLOWED_GROUP_ID = 81889058; // ضع هنا رقم الروم الحقيقي
+// --- إعدادات التخصيص ---
+const ALLOWED_GROUP_ID = 81889058; // استبدل هذا الرقم برقم الروم الخاص بك
 const CAPTCHA_FILE = path.join(__dirname, 'captcha.jpg');
 
 service.on('groupMessage', async (message) => {
-    // 1. التحقق من الروم
+    // 1. منطق تحديد الروم (Guard Clause)
+    // إذا لم يكن الروم مطابقاً، يخرج البوت من الدالة فوراً
     if (message.targetGroupId !== ALLOWED_GROUP_ID) return;
 
-    // 2. التأكد من وجود صورة
+    // 2. التحقق من وجود صورة (كابتشا)
     if (message.attachments && message.attachments.length > 0) {
         const imageUrl = message.attachments[0].link;
 
@@ -25,7 +26,7 @@ service.on('groupMessage', async (message) => {
             response.data.pipe(writer);
 
             writer.on('finish', () => {
-                // 3. تشغيل كود البايثون
+                // 3. استدعاء البايثون
                 exec(`python3 solver.py "${CAPTCHA_FILE}"`, (error, stdout, stderr) => {
                     if (error) {
                         console.error("Exec error:", error);
@@ -34,7 +35,7 @@ service.on('groupMessage', async (message) => {
                     
                     const result = stdout.trim();
                     if (result && result !== "No text detected") {
-                        // 4. إرسال الحل للروم
+                        // إرسال الحل
                         service.messaging.sendGroupMessage(message.targetGroupId, `# ${result}`);
                     }
                 });
