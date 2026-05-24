@@ -1,41 +1,35 @@
 import wolfjs from 'wolf.js';
 import axios from 'axios';
 import Tesseract from 'tesseract.js';
-import { Jimp } from 'jimp'; // استيراد حديث
+import { Jimp } from 'jimp'; 
 
 const { WOLF } = wolfjs;
 const service = new WOLF();
 
-// --- الإعدادات ---
 const CONFIG = {
-    MONITOR_GROUP: 81889058, // رقم الروم الذي تريده
-    RESULT_ROOM: 9969        // رقم روم النتيجة
+    MONITOR_GROUP: 81889058,
+    RESULT_ROOM: 9969
 };
 
-// --- تعريف الألوان للبحث عن الإطار الذهبي/الأصفر ---
 const TARGET_COLOR = { r: 240, g: 190, b: 70 }; 
 
 async function solveCaptcha(imageUrl) {
     try {
         const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-        // استخدام Jimp لقراءة الصورة من Buffer
         const image = await Jimp.read(response.data);
 
         let minX = image.bitmap.width, maxX = 0;
         let minY = image.bitmap.height, maxY = 0;
         let found = false;
 
-        // --- البحث عن الإطار الملون ---
-        // نقوم بمسح الصورة للبحث عن بكسلات قريبة للون الأصفر الذهبي
         image.scan(0, 0, image.bitmap.width, image.bitmap.height, (x, y, idx) => {
             const r = image.bitmap.data[idx];
             const g = image.bitmap.data[idx + 1];
             const b = image.bitmap.data[idx + 2];
 
-            // سماحية 50 درجة لتجاوز تغيرات الإضاءة
-            if (Math.abs(r - TARGET_COLOR.r) < 50 && 
-                Math.abs(g - TARGET_COLOR.g) < 50 && 
-                Math.abs(b - TARGET_COLOR.b) < 50) {
+            if (Math.abs(r - TARGET_COLOR.r) < 60 && 
+                Math.abs(g - TARGET_COLOR.g) < 60 && 
+                Math.abs(b - TARGET_COLOR.b) < 60) {
                 
                 if (x < minX) minX = x; if (x > maxX) maxX = x;
                 if (y < minY) minY = y; if (y > maxY) maxY = y;
@@ -45,28 +39,29 @@ async function solveCaptcha(imageUrl) {
 
         if (!found) return null;
 
-        // قص الصورة (إضافة هامش 10 بكسل لضمان احتواء النص)
-        const cropWidth = (maxX - minX) + 20;
-        const cropHeight = (maxY - minY) + 20;
-        const finalBlock = image.clone().crop({ x: minX - 10, y: minY - 10, w: cropWidth, h: cropHeight });
+        // قص أدق للمربع
+        const cropWidth = (maxX - minX);
+        const cropHeight = (maxY - minY);
+        const finalBlock = image.clone().crop({ x: minX + 5, y: minY + 5, w: cropWidth - 10, h: cropHeight - 10 });
 
-        // تحسين التباين ليقرأ Tesseract النص بوضوح
-        await finalBlock.greyscale().contrast(1).normalize();
+        // المعالجة الحاسمة: تحويل لصورة بيضاء وسوداء صريحة لإخفاء الشبكة
+        await finalBlock.greyscale().contrast(0.5).threshold({ max: 150, replace: 255 });
         const buffer = await finalBlock.getBuffer('image/png');
 
-        // القراءة
-        const { data: { text } } = await Tesseract.recognize(buffer, 'eng'); // استخدام eng لأن النصوص لاتينية
+        // القراءة مع القائمة البيضاء (السر هنا)
+        const { data: { text } } = await Tesseract.recognize(buffer, 'eng', {
+            // القائمة البيضاء: يسمح فقط بالحروف والأرقام
+            tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+        });
 
-        return text.replace(/[^a-zA-Z0-9\u0621-\u064A]/g, '').trim();
+        return text.replace(/[^a-zA-Z0-9]/g, '').trim();
     } catch (err) {
         console.error("❌ خطأ:", err.message);
         return null;
     }
 }
 
-// --- المراقبة ---
 service.on('groupMessage', async (message) => {
-    // 1. حصر البوت في الروم المحدد فقط
     if (message.targetGroupId !== CONFIG.MONITOR_GROUP) return;
 
     let imageUrl = null;
@@ -78,7 +73,7 @@ service.on('groupMessage', async (message) => {
         const result = await solveCaptcha(imageUrl);
         
         if (result && result.length > 0) {
-            console.log(`🔑 النتيجة: ${result}`);
+            console.log(`🔑 النتيجة المستخلصة: ${result}`);
             await service.messaging.sendGroupMessage(CONFIG.RESULT_ROOM, `# ${result}`);
         }
     }
