@@ -11,6 +11,8 @@
     "dotenv": "latest",
     "jimp": "latest",
     "pixelmatch": "latest",
-    "pngjs": "latest"
+    "pngjs": "latest",
+    "sharp": "latest",
+    "tesseract.js": "latest"
   }
 }
