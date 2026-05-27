@@ -83,7 +83,7 @@ client.on('groupMessage', async (message) => {
         console.log(`👤 تم فحص بطاقة، اللاعب هو: "${playerName}"`);
 
         // التحقق من اسم "king" (بشكل غير حساس لحالة الأحرف)
-        if (!playerName.toLowerCase().includes('king')) {
+        if (!playerName.toLowerCase().includes('ksa')) {
             console.log("⏭️ تم تجاهل البطاقة (الاسم ليس king).");
             return;
         }
