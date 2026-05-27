@@ -18,32 +18,37 @@ client.on('ready', async () => {
     startAutomation();
 });
 
-// نقوم بتعديل الدالة لتعمل بنظام الانتظار بعد التنفيذ
 async function startAutomation() {
-    // نحدد وقت الانتظار هنا (66000 ميللي ثانية = 66 ثانية)
-    // أضفنا 3 ثوانٍ إضافية لحل مشكلة التقديم التي تواجهها
-
-    async function runTask() {
+    // دالة تقوم بتنفيذ الخطوات بالترتيب
+    const runTask = async () => {
         try {
-            console.log("🕒 بدء المهام...");
+            // 1. انتظار ثانية واحدة قبل البدء
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // 2. إرسال أمر المهام
             await client.messaging.sendGroupMessage(CHANNEL_ID, '!مد مهام');
-            
-            // انتظار ثانيتين بين الأمرين
+            console.log("✅ تم إرسال !مد مهام");
+
+            // 3. انتظار ثانيتين
             await new Promise(resolve => setTimeout(resolve, 2000));
-            
+
+            // 4. إرسال أمر الإيداع
             await client.messaging.sendGroupMessage(CHANNEL_ID, '!مد تحالف ايداع كل');
-            console.log("✅ تم إرسال المهام بنجاح.");
+            console.log("✅ تم إرسال !مد تحالف ايداع كل");
+
         } catch (err) {
             console.error("❌ خطأ في الأتمتة:", err.message);
         }
 
-        // هنا السحر: ننتظر انتهاء المهمة ثم نضبط المؤقت للعملية التالية
-        setTimeout(runTask, DELAY_MS);
-    }
+        // 5. انتظار 63 ثانية ثم إعادة تشغيل الدالة بالكامل
+        console.log("⏳ بانتظار 63 ثانية للبدء من جديد...");
+        setTimeout(runTask, 63000);
+    };
 
-    // تشغيل العملية الأولى
+    // تشغيل أول دورة
     runTask();
 }
+
 
 
 // دالة فحص نسبة اللون الأحمر
