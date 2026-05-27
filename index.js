@@ -6,15 +6,19 @@ import { createWorker } from 'tesseract.js';
 const { WOLF } = wolfjs;
 const client = new WOLF();
 
-const CHANNEL_ID = 81889058;
-const INTERVAL_MS = 63000;
+// --- الإعدادات ---
+const CHANNEL_ID = 81889058;    // القناة المستهدفة
+const BOT_ID = 51660277;        // عضوية البوت (لمنع التفاعل مع رسائل البوت نفسه)
+const INTERVAL_MS = 63000;      // وقت المهام التلقائية
 
 client.on('ready', async () => {
-    console.log("🚀 البوت متصل! جاهز لتحليل اسم اللاعب واستخراج الكابتشا.");
+    console.log(`🚀 البوت متصل ومستعد!`);
+    console.log(`📡 يراقب القناة: ${CHANNEL_ID}`);
     await client.group.joinById(CHANNEL_ID);
     startAutomation();
 });
 
+// دالة المهام التلقائية
 async function startAutomation() {
     setInterval(async () => {
         try {
@@ -27,7 +31,7 @@ async function startAutomation() {
     }, INTERVAL_MS);
 }
 
-// 1. دالة فحص اللون (للتأكد أنها كابتشا)
+// 1. دالة فحص اللون (للتأكد أنها كابتشا) - تعتمد على كثافة اللون الأحمر
 async function isCaptchaByColor(buffer) {
     const { data, info } = await sharp(buffer).raw().ensureAlpha().toBuffer({ resolveWithObject: true });
     let redPixels = 0;
@@ -39,69 +43,38 @@ async function isCaptchaByColor(buffer) {
     return percentage > 40;
 }
 
-// 2. دالة استخراج اسم اللاعب بالإحداثيات التي طلبتها
+// 2. دالة استخراج اسم اللاعب (مع الإحداثيات المصححة)
 async function extractPlayerName(buffer) {
     try {
         const metadata = await sharp(buffer).metadata();
         const { width, height } = metadata;
-
-        // الإحداثيات بناءً على نسبك:
-        // Left 70%, Top 10%
-        // العرض المتبقي (25%)، الارتفاع المتبقي (5%)
+        
+        // الإحداثيات المصححة للتركيز على سطر اسم اللاعب فقط
         const extractOptions = {
             left: Math.floor(width * 0.70),
-            top: Math.floor(height * 0.10),
+            top: Math.floor(height * 0.05),
             width: Math.floor(width * 0.25),
-            height: Math.floor(height * 0.05)
+            height: Math.floor(height * 0.03)
         };
 
         const croppedBuffer = await sharp(buffer)
             .extract(extractOptions)
             .greyscale()
-            .threshold(150)
+            .threshold(180)
             .toBuffer();
 
         const worker = await createWorker('ara+eng');
         const { data: { text } } = await worker.recognize(croppedBuffer);
         await worker.terminate();
 
-        return text.trim();
+        // تنظيف النص
+        return text.replace(/[^a-zA-Z0-9\u0621-\u064A]/g, ' ').trim() || "غير معروف";
     } catch (e) {
-        return "غير معروف";
+        return "خطأ في القراءة";
     }
 }
 
-client.on('groupMessage', async (message) => {
-    if (message.targetGroupId != CHANNEL_ID || message.type !== 'text/image_link') return;
-
-    const imageUrl = message.body;
-    
-    try {
-        const response = await fetch(imageUrl);
-        const buffer = Buffer.from(await response.arrayBuffer());
-
-        // التحقق من أنها كابتشا
-        const isCaptcha = await isCaptchaByColor(buffer);
-        if (!isCaptcha) return;
-
-        // استخراج اسم اللاعب وطباعته
-        const playerName = await extractPlayerName(buffer);
-        console.log(`👤 اسم اللاعب في البطاقة: ${playerName}`);
-        
-        // يمكنك إرسال اسم اللاعب للقناة إذا أردت:
-        // await client.messaging.sendGroupMessage(CHANNEL_ID, `اللاعب: ${playerName}`);
-
-        // حل الكابتشا
-        const code = await solveCaptcha(buffer);
-        if (code) {
-            await client.messaging.sendGroupMessage(CHANNEL_ID, `#${code}`);
-            console.log(`✅ تم إرسال الرمز: #${code}`);
-        }
-    } catch (err) {
-        console.error("⚠️ خطأ:", err.message);
-    }
-});
-
+// 3. دالة حل الكابتشا (تعتمد على الإطار الأصفر)
 async function solveCaptcha(buffer) {
     const { data, info } = await sharp(buffer).raw().ensureAlpha().toBuffer({ resolveWithObject: true });
     let minX = info.width, minY = info.height, maxX = 0, maxY = 0, found = false;
@@ -133,5 +106,37 @@ async function solveCaptcha(buffer) {
 
     return text.replace(/[^a-zA-Z0-9\u0621-\u064A]/g, '').trim();
 }
+
+// الاستماع للرسائل
+client.on('groupMessage', async (message) => {
+    // 1. الفلاتر الأساسية: القناة، المرسل، والنوع
+    if (message.targetGroupId != CHANNEL_ID) return;
+    if (message.sourceSubscriberId == BOT_ID) return; // منع التفاعل مع رسائل البوت نفسه
+    if (message.type !== 'text/image_link') return;
+
+    const imageUrl = message.body;
+    
+    try {
+        const response = await fetch(imageUrl);
+        const buffer = Buffer.from(await response.arrayBuffer());
+
+        // 2. التحقق من أنها كابتشا (باللون)
+        const isCaptcha = await isCaptchaByColor(buffer);
+        if (!isCaptcha) return;
+
+        // 3. استخراج الاسم وطباعته
+        const playerName = await extractPlayerName(buffer);
+        console.log(`👤 اسم اللاعب في البطاقة: ${playerName}`);
+        
+        // 4. حل الكابتشا وإرسالها
+        const code = await solveCaptcha(buffer);
+        if (code) {
+            await client.messaging.sendGroupMessage(CHANNEL_ID, `#${code}`);
+            console.log(`✅ تم إرسال الرمز: #${code}`);
+        }
+    } catch (err) {
+        console.error("⚠️ خطأ في المعالجة:", err.message);
+    }
+});
 
 client.login(process.env.U_MAIL, process.env.U_PASS);
