@@ -42,7 +42,7 @@ async function startAutomation() {
 
         // 5. انتظار 63 ثانية ثم إعادة تشغيل الدالة بالكامل
         console.log("⏳ بانتظار 63 ثانية للبدء من جديد...");
-        setTimeout(runTask, 63000);
+        setTimeout(runTask, 65000);
     };
 
     // تشغيل أول دورة
