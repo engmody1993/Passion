@@ -17,7 +17,7 @@ const CHANNEL_ID = 569; // آيدي القناة
 const DELAY_MS = 63000; // المهام الرئيسية
 const BOX_DELAY_MS = 180000; // الصندوق كل 3 دقائق
 
-const TARGET_PLAYER_NAME = 'King';
+const TARGET_PLAYER_NAME = 'Passion';
 
 // ========================================
 // تشغيل البوت
