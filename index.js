@@ -14,7 +14,7 @@ const client = new WOLF();
 const TARGET_USER_ID = 84520028;
 const CHANNEL_ID = 569;
 
-const TARGET_PLAYER_NAME = 'Saudi';
+const TARGET_PLAYER_NAME = 'SAA';
 
 // ========================================
 // التوقيتات
