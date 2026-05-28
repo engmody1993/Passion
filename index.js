@@ -14,10 +14,17 @@ const client = new WOLF();
 const TARGET_USER_ID = 84520028;
 const CHANNEL_ID = 569;
 
-const TARGET_PLAYER_NAME = 'SA';
+const TARGET_PLAYER_NAME = 'Saudi';
 
-// كل 5 دقائق
-const TASK_DELAY = 300000;
+// ========================================
+// التوقيتات
+// ========================================
+
+// كل دقيقة
+const TASKS_DELAY = 60000;
+
+// كل 3 دقائق
+const BOX_DELAY = 180000;
 
 let lastSolved = '';
 let solving = false;
@@ -62,9 +69,14 @@ client.on('ready', async () => {
 // AUTOMATION
 // ========================================
 
-async function startAutomation() {
+function startAutomation() {
 
-    const runTask = async () => {
+    // ========================================
+    // !مد مهام + !مد تحالف ايداع كل
+    // كل دقيقة
+    // ========================================
+
+    const runMinuteCommands = async () => {
 
         try {
 
@@ -79,11 +91,38 @@ async function startAutomation() {
 
             console.log('✅ تم إرسال !مد مهام');
 
-            await wait(2000);
+            // ========================================
+            // انتظار 3 ثواني
+            // ========================================
+
+            await wait(3000);
 
             // ========================================
-            // !مد صندوق فتح
+            // !مد تحالف ايداع كل
             // ========================================
+
+            await client.messaging.sendGroupMessage(
+                CHANNEL_ID,
+                '!مد تحالف ايداع كل'
+            );
+
+            console.log('✅ تم إرسال !مد تحالف ايداع كل');
+
+        } catch (err) {
+
+            console.error('❌ خطأ بأوامر الدقيقة:', err.message);
+
+        }
+    };
+
+    // ========================================
+    // !مد صندوق فتح
+    // كل 3 دقائق
+    // ========================================
+
+    const runBoxCommand = async () => {
+
+        try {
 
             await client.messaging.sendGroupMessage(
                 CHANNEL_ID,
@@ -92,31 +131,21 @@ async function startAutomation() {
 
             console.log('✅ تم إرسال !مد صندوق فتح');
 
-            await wait(2000);
-
-            // ========================================
-            // !مد صندوق ايداع كل
-            // ========================================
-
-            await client.messaging.sendGroupMessage(
-                CHANNEL_ID,
-                '!مد صندوق ايداع كل'
-            );
-
-            console.log('✅ تم إرسال !مد صندوق ايداع كل');
-
         } catch (err) {
 
-            console.error('❌ خطأ بالأتمتة:', err.message);
+            console.error('❌ خطأ بأمر الصندوق:', err.message);
 
         }
-
-        console.log('⏳ انتظار 5 دقائق...');
-
-        setTimeout(runTask, TASK_DELAY);
     };
 
-    runTask();
+    // تشغيل مباشر أول مرة
+    runMinuteCommands();
+    runBoxCommand();
+
+    // التكرار
+    setInterval(runMinuteCommands, TASKS_DELAY);
+
+    setInterval(runBoxCommand, BOX_DELAY);
 }
 
 // ========================================
