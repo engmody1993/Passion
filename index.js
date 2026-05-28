@@ -1,8 +1,8 @@
 import 'dotenv/config';
 import wolfjs from 'wolf.js';
 import sharp from 'sharp';
-import { createWorker } from 'tesseract.js';
 import fetch from 'node-fetch';
+import { createWorker } from 'tesseract.js';
 
 const { WOLF } = wolfjs;
 const client = new WOLF();
@@ -11,79 +11,47 @@ const client = new WOLF();
 // الإعدادات
 // ========================================
 
-const TARGET_USER_ID = 84520028;
-const CHANNEL_ID = 569;
+const TARGET_USER_ID = 84520028; // مرسل صور الكابتشا
+const CHANNEL_ID = 569; // آيدي القناة
+
+const DELAY_MS = 63000; // المهام الرئيسية
+const BOX_DELAY_MS = 180000; // الصندوق كل 3 دقائق
 
 const TARGET_PLAYER_NAME = 'SAA';
 
 // ========================================
-// التوقيتات
-// ========================================
-
-// كل دقيقة
-const TASKS_DELAY = 60000;
-
-// كل 3 دقائق
-const BOX_DELAY = 180000;
-
-let lastSolved = '';
-let solving = false;
-
-// ========================================
-// OCR WORKER
-// ========================================
-
-const worker = await createWorker('eng+ara');
-
-await worker.setParameters({
-    tessedit_pageseg_mode: '7',
-    preserve_interword_spaces: '0',
-});
-
-// ========================================
-// READY
+// تشغيل البوت
 // ========================================
 
 client.on('ready', async () => {
 
     console.log(`🚀 البوت متصل`);
-    console.log(`🎯 فلترة الاسم: ${TARGET_PLAYER_NAME}`);
+    console.log(
+        `🎯 سيتم الحل فقط إذا كان الاسم يحتوي على: ${TARGET_PLAYER_NAME}`
+    );
 
-    try {
+    await client.group.joinById(CHANNEL_ID);
 
-        await client.group.joinById(CHANNEL_ID);
-
-        console.log(`✅ دخل القناة`);
-
-        startAutomation();
-
-    } catch (err) {
-
-        console.error('❌ خطأ بالدخول:', err.message);
-
-    }
-
+    startAutomation();
 });
 
 // ========================================
-// AUTOMATION
+// الأوامر التلقائية
 // ========================================
 
-function startAutomation() {
+async function startAutomation() {
 
-    // ========================================
-    // !مد مهام + !مد تحالف ايداع كل
-    // كل دقيقة
-    // ========================================
+    // ====================================
+    // المهام + الإيداع
+    // ====================================
 
-    const runMinuteCommands = async () => {
+    const runMainTask = async () => {
 
         try {
 
-            // ========================================
-            // !مد مهام
-            // ========================================
+            await sleep(3000);
 
+            // أمر المهام
             await client.messaging.sendGroupMessage(
                 CHANNEL_ID,
                 '!مد مهام'
@@ -91,36 +59,38 @@ function startAutomation() {
 
             console.log('✅ تم إرسال !مد مهام');
 
-            // ========================================
-            // انتظار 3 ثواني
-            // ========================================
+            await sleep(2000);
 
-            await wait(3000);
-
-            // ========================================
-            // !مد تحالف ايداع كل
-            // ========================================
-
+            // أمر الإيداع
             await client.messaging.sendGroupMessage(
                 CHANNEL_ID,
                 '!مد تحالف ايداع كل'
             );
 
-            console.log('✅ تم إرسال !مد تحالف ايداع كل');
+            console.log(
+                '✅ تم إرسال !مد تحالف ايداع كل'
+            );
 
         } catch (err) {
 
-            console.error('❌ خطأ بأوامر الدقيقة:', err.message);
+            console.error(
+                '❌ خطأ في المهام:',
+                err.message
+            );
 
         }
+
+        setTimeout(
+            runMainTask,
+            DELAY_MS
+        );
     };
 
-    // ========================================
-    // !مد صندوق فتح
-    // كل 3 دقائق
-    // ========================================
+    // ====================================
+    // فتح الصندوق كل 3 دقائق
+    // ====================================
 
-    const runBoxCommand = async () => {
+    const runBoxTask = async () => {
 
         try {
 
@@ -129,161 +99,141 @@ function startAutomation() {
                 '!مد صندوق فتح'
             );
 
-            console.log('✅ تم إرسال !مد صندوق فتح');
+            console.log(
+                '📦 تم إرسال !مد صندوق فتح'
+            );
 
         } catch (err) {
 
-            console.error('❌ خطأ بأمر الصندوق:', err.message);
+            console.error(
+                '❌ خطأ في الصندوق:',
+                err.message
+            );
 
         }
+
+        setTimeout(
+            runBoxTask,
+            BOX_DELAY_MS
+        );
     };
 
-    // تشغيل مباشر أول مرة
-    runMinuteCommands();
-    runBoxCommand();
-
-    // التكرار
-    setInterval(runMinuteCommands, TASKS_DELAY);
-
-    setInterval(runBoxCommand, BOX_DELAY);
+    // تشغيل المهمتين
+    runMainTask();
+    runBoxTask();
 }
 
 // ========================================
-// EVENTS
+// التقاط الرسائل
 // ========================================
 
 client.on('groupMessage', async (message) => {
 
     try {
 
-        // ========================================
-        // فلترة الرسائل
-        // ========================================
+        // فلترة القناة
+        if (message.targetGroupId != CHANNEL_ID)
+            return;
 
-        if (message.targetGroupId != CHANNEL_ID) return;
+        // فلترة المرسل
+        if (
+            message.sourceSubscriberId !=
+            TARGET_USER_ID
+        )
+            return;
 
-        if (message.sourceSubscriberId != TARGET_USER_ID) return;
-
-        if (message.type !== 'text/image_link') return;
-
-        if (solving) return;
-
-        solving = true;
+        // فقط الصور
+        if (
+            message.type !== 'text/image_link'
+        )
+            return;
 
         const imageUrl = message.body;
 
         console.log('🖼️ تم استلام صورة');
 
-        // ========================================
         // تحميل الصورة
-        // ========================================
-
         const response = await fetch(imageUrl);
 
-        const buffer = Buffer.from(await response.arrayBuffer());
+        const buffer = Buffer.from(
+            await response.arrayBuffer()
+        );
 
-        // ========================================
-        // فحص الكابتشا
-        // ========================================
-
-        const isCaptcha = await isCaptchaByColor(buffer);
+        // التأكد أنها كابتشا
+        const isCaptcha =
+            await isCaptchaByColor(buffer);
 
         if (!isCaptcha) {
 
-            solving = false;
-            return;
+            console.log('⏭️ ليست كابتشا');
 
+            return;
         }
 
         console.log('✅ تم اكتشاف كابتشا');
 
-        // ========================================
         // استخراج اسم اللاعب
-        // ========================================
-
-        const playerName = await extractPlayerName(buffer);
+        const playerName =
+            await extractPlayerName(buffer);
 
         console.log(`👤 اللاعب: ${playerName}`);
 
-        // ========================================
         // فلترة الاسم
-        // ========================================
-
         if (
             !playerName
                 .toLowerCase()
-                .includes(TARGET_PLAYER_NAME.toLowerCase())
+                .includes(
+                    TARGET_PLAYER_NAME.toLowerCase()
+                )
         ) {
 
-            console.log('⏭️ الاسم غير مطابق');
+            console.log(
+                '⏭️ الاسم غير مطابق'
+            );
 
-            solving = false;
             return;
         }
 
         console.log('✅ الاسم مطابق');
 
-        // ========================================
         // حل الكابتشا
-        // ========================================
-
-        const code = await solveCaptcha(buffer);
+        const code =
+            await solveCaptcha(buffer);
 
         if (!code) {
 
-            console.log('❌ فشل استخراج الكود');
+            console.log(
+                '❌ لم يتم استخراج الكود'
+            );
 
-            solving = false;
             return;
         }
 
-        // ========================================
-        // منع التكرار
-        // ========================================
+        console.log(`🔑 الكود: ${code}`);
 
-        if (code === lastSolved) {
-
-            console.log('⏭️ تم تجاهل كود مكرر');
-
-            solving = false;
-            return;
-        }
-
-        lastSolved = code;
-
-        // ========================================
         // إرسال الحل
-        // ========================================
-
         await client.messaging.sendGroupMessage(
             CHANNEL_ID,
             `#${code}`
         );
 
-        console.log(`✅ تم إرسال الحل: #${code}`);
-
-        // ========================================
-        // إعادة السماح بعد ثواني
-        // ========================================
-
-        setTimeout(() => {
-
-            lastSolved = '';
-
-        }, 15000);
+        console.log(
+            `✅ تم إرسال #${code}`
+        );
 
     } catch (err) {
 
-        console.error('⚠️ خطأ:', err.message);
+        console.error(
+            '⚠️ خطأ أثناء معالجة الصورة:',
+            err.message
+        );
 
     }
-
-    solving = false;
 
 });
 
 // ========================================
-// كشف صورة التحقق
+// كشف الكابتشا
 // ========================================
 
 async function isCaptchaByColor(buffer) {
@@ -294,11 +244,14 @@ async function isCaptchaByColor(buffer) {
     } = await sharp(buffer)
         .raw()
         .ensureAlpha()
-        .toBuffer({ resolveWithObject: true });
+        .toBuffer({
+            resolveWithObject: true
+        });
 
-    let yellowPixels = 0;
+    let redPixels = 0;
 
-    const totalPixels = info.width * info.height;
+    const totalPixels =
+        info.width * info.height;
 
     for (let i = 0; i < data.length; i += 4) {
 
@@ -307,20 +260,19 @@ async function isCaptchaByColor(buffer) {
         const b = data[i + 2];
 
         if (
-            r > 170 &&
-            g > 170 &&
-            b < 140
+            r > 120 &&
+            r > (g + 30) &&
+            r > (b + 30)
         ) {
 
-            yellowPixels++;
-
+            redPixels++;
         }
     }
 
     const percentage =
-        (yellowPixels / totalPixels) * 100;
+        (redPixels / totalPixels) * 100;
 
-    return percentage > 1.2;
+    return percentage > 40;
 }
 
 // ========================================
@@ -331,46 +283,40 @@ async function extractPlayerName(buffer) {
 
     try {
 
-        const processed = await sharp(buffer)
+        const processedBuffer =
+            await sharp(buffer)
+                .greyscale()
+                .normalize()
+                .threshold(160)
+                .sharpen()
+                .toBuffer();
 
-            .greyscale()
-
-            .normalize()
-
-            .resize({ width: 1400 })
-
-            .sharpen()
-
-            .threshold(150)
-
-            .toBuffer();
+        const worker =
+            await createWorker('ara+eng');
 
         const {
             data: { text }
-        } = await worker.recognize(processed);
+        } = await worker.recognize(
+            processedBuffer
+        );
 
-        const clean = text
-            .replace(/\s+/g, ' ')
-            .trim();
+        await worker.terminate();
 
-        console.log('📄 OCR TEXT:', clean);
-
-        const match = clean.match(
+        const match = text.match(
             /اللاعب[:\s]+([^\n\r]+)/u
         );
 
-        if (!match) return '';
-
-        return match[1]
-            .replace(/[^\u0621-\u064Aa-zA-Z0-9_ ]/g, '')
-            .trim();
+        return match
+            ? match[1].trim()
+            : 'غير معروف';
 
     } catch (err) {
 
-        console.log('❌ خطأ قراءة الاسم');
+        console.log(
+            '❌ خطأ استخراج الاسم'
+        );
 
-        return '';
-
+        return 'خطأ';
     }
 }
 
@@ -386,33 +332,34 @@ async function solveCaptcha(buffer) {
     } = await sharp(buffer)
         .raw()
         .ensureAlpha()
-        .toBuffer({ resolveWithObject: true });
+        .toBuffer({
+            resolveWithObject: true
+        });
 
     let minX = info.width;
     let minY = info.height;
+
     let maxX = 0;
     let maxY = 0;
 
     let found = false;
 
-    // ========================================
-    // اكتشاف الإطار الأصفر
-    // ========================================
-
+    // البحث عن الإطار الأصفر
     for (let y = 0; y < info.height; y++) {
 
         for (let x = 0; x < info.width; x++) {
 
-            const idx = (y * info.width + x) * 4;
+            const idx =
+                (y * info.width + x) * 4;
 
             const r = data[idx];
             const g = data[idx + 1];
             const b = data[idx + 2];
 
             if (
-                r > 180 &&
-                g > 180 &&
-                b < 120
+                r > 200 &&
+                g > 200 &&
+                b < 100
             ) {
 
                 minX = Math.min(minX, x);
@@ -428,115 +375,70 @@ async function solveCaptcha(buffer) {
 
     if (!found) {
 
-        console.log('❌ لم يتم اكتشاف الإطار');
-
-        return null;
+        throw new Error(
+            'لم يتم العثور على الإطار الأصفر'
+        );
     }
 
-    // ========================================
-    // قص المنطقة
-    // ========================================
+    const margin = 10;
 
-    const margin = 15;
+    const width =
+        (maxX - minX) - (margin * 2);
 
-    const width = maxX - minX - margin * 2;
-    const height = maxY - minY - margin * 2;
+    const height =
+        (maxY - minY) - (margin * 2);
 
-    if (width <= 0 || height <= 0) {
+    const processedBuffer =
+        await sharp(buffer)
+            .extract({
+                left: minX + margin,
+                top: minY + margin,
+                width,
+                height
+            })
+            .greyscale()
+            .normalize()
+            .linear(1.5, -0.2)
+            .sharpen()
+            .threshold(140)
+            .toBuffer();
 
-        console.log('❌ أبعاد غير صالحة');
+    const worker =
+        await createWorker('eng+ara');
 
-        return null;
-    }
-
-    // ========================================
-    // تحسين الصورة
-    // ========================================
-
-    const processed = await sharp(buffer)
-
-        .extract({
-            left: minX + margin,
-            top: minY + margin,
-            width,
-            height
-        })
-
-        .resize({
-            width: width * 4
-        })
-
-        .greyscale()
-
-        .normalize()
-
-        .modulate({
-            brightness: 1.2
-        })
-
-        .sharpen()
-
-        .threshold(145)
-
-        .png()
-
-        .toBuffer();
-
-    // ========================================
-    // OCR
-    // ========================================
+    await worker.setParameters({
+        tessedit_pageseg_mode: '7'
+    });
 
     const {
         data: { text }
-    } = await worker.recognize(processed);
+    } = await worker.recognize(
+        processedBuffer
+    );
 
-    console.log('🔍 النص الخام:', text);
+    await worker.terminate();
 
-    // ========================================
-    // تنظيف الناتج
-    // ========================================
-
-    let result = text
-
-        .replace(/\s/g, '')
-
-        .replace(/[^a-zA-Z0-9\u0621-\u064A]/g, '')
-
+    return text
+        .replace(
+            /[^a-zA-Z0-9\u0621-\u064A]/g,
+            ''
+        )
         .trim();
-
-    // ========================================
-    // تحسينات شائعة
-    // ========================================
-
-    result = result
-
-        .replace(/O/g, '0')
-        .replace(/I/g, '1')
-        .replace(/l/g, '1');
-
-    if (result.length < 2) {
-
-        return null;
-    }
-
-    return result;
 }
 
 // ========================================
-// أدوات مساعدة
+// دالة الانتظار
 // ========================================
 
-function wait(ms) {
+function sleep(ms) {
 
-    return new Promise(resolve => {
-
-        setTimeout(resolve, ms);
-
-    });
+    return new Promise(resolve =>
+        setTimeout(resolve, ms)
+    );
 }
 
 // ========================================
-// LOGIN
+// تسجيل الدخول
 // ========================================
 
 client.login(
