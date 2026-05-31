@@ -11,8 +11,8 @@ const client = new WOLF();
 // الإعدادات
 // ========================================
 
-const TARGET_USER_ID = 84520028; // مرسل صور الكابتشا
-const CHANNEL_ID = 569; // آيدي القناة
+const TARGET_USER_ID = 84520026; // مرسل صور الكابتشا
+const CHANNEL_ID = 22271611; // آيدي القناة
 
 const DELAY_MS = 63000; // المهام الرئيسية
 const BOX_DELAY_MS = 180000; // الصندوق كل 3 دقائق
